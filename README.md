@@ -1,36 +1,82 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# CF Weddings — Guest Dashboard
 
-## Getting Started
+The couple-facing guest dashboard for CF Weddings. **One Next.js app and one
+Vercel project serve every wedding.** There is no tenant/hostname/slug
+resolution and no login — a couple's secret key in the URL is the only thing
+that identifies their wedding. This app never touches Firestore — every
+read goes through the existing `guests` fetch Cloud Function over HTTP,
+which looks the wedding up by key and returns its data directly.
 
-First, run the development server:
+A couple's link looks like:
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+```
+https://guests.<their-domain>/?k=<their secret key>
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The hostname is cosmetic — it exists so each couple can have their own
+branded domain, but it drives no logic in this app. The same link works
+identically on any hostname, including `localhost`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Environment variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Variable | Required | Description |
+| --- | --- | --- |
+| `GUESTS_ENDPOINT_URL` | Yes | Base URL of the `guests` fetch Cloud Function. Server-only — never sent to the browser. In production: `https://us-central1-cfweddingslive.cloudfunctions.net/guests`. For local dev, point it at the bundled mock server instead (see below). |
 
-## Learn More
+Set it in Vercel under Project Settings → Environment Variables (Production
+and Preview), and locally in `.env.local` (copy `.env.local.example`).
 
-To learn more about Next.js, take a look at the following resources:
+## Running locally
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npm install
+cp .env.local.example .env.local   # already points at the local mock server
+npm run mock:guests                # terminal 1 — fake `guests` backend on :8787
+npm run dev                        # terminal 2 — the app on :3000
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+The mock server (`scripts/mock-guests-server.mjs`) implements the same GET
+contract as the real Cloud Function (`k`, `format`) and serves 250 fixture
+guests split evenly across two sides. It accepts any request where
+`k=dev-key`. It's dev-only — never deployed, and unrelated to production
+Firestore data.
 
-## Deploy on Vercel
+## Local dev URL
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Once `npm run mock:guests` and `npm run dev` are both running:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```
+http://localhost:3000/?k=dev-key
+```
+
+To test against live data instead, point `GUESTS_ENDPOINT_URL` at the real
+Cloud Function and use a real couple's key:
+
+```
+http://localhost:3000/?k=<real secret key>
+```
+
+## Onboarding a new couple
+
+Nothing in this repo needs to change — the backend issues the couple their
+secret key and returns their wedding's data when it's looked up. If they
+want a branded subdomain instead of the shared `dashboard.cfweddings.live`
+host, attach it in Vercel:
+
+1. In the Vercel dashboard, open this project → **Settings → Domains** →
+   **Add**, and enter the couple's subdomain, e.g. `guests.example.com`.
+2. Vercel will show the DNS record to create at the couple's DNS provider.
+   For a subdomain like `guests.example.com` this is almost always a
+   **CNAME**:
+   - **Type:** `CNAME`
+   - **Name/Host:** `guests` (i.e. just the subdomain label)
+   - **Value/Target:** `cname.vercel-dns.com`
+   (If the domain's apex is being pointed at Vercel instead, Vercel will
+   show an `A` record to `76.76.21.21` — not needed for a subdomain like
+   this.)
+3. Add the record with the couple's DNS provider and wait for propagation
+   (usually minutes, sometimes longer). Vercel's Domains page shows the
+   verification status and issues the TLS certificate automatically once
+   it resolves.
+4. Once the domain is verified, that hostname serves the same app — the
+   couple's link still works purely off their `?k=` key.
