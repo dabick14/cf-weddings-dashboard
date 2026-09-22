@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { GuestsPayload } from "@/lib/guests";
 import { useCountUp, usePrefersReducedMotion } from "@/lib/useCountUp";
 import { Hero } from "./Hero";
-import { GuestColumn } from "./GuestColumn";
+import { GuestDirectory } from "./GuestDirectory";
 import { EmptyState } from "./EmptyState";
 import { ExportAction } from "./ExportAction";
 
@@ -69,15 +69,12 @@ export function DashboardClient({
       />
 
       {hasGuests ? (
-        <div className="mt-16 grid grid-cols-1 gap-x-20 gap-y-14 sm:mt-20 md:grid-cols-2">
-          {data.sides.map((side) => (
-            <GuestColumn
-              key={side.key}
-              label={side.label}
-              guests={data.guests.filter((guest) => guest.side.toLowerCase() === side.key.toLowerCase())}
-            />
-          ))}
-        </div>
+        <GuestDirectory
+          sides={data.sides}
+          guests={data.guests}
+          totalCount={data.counts.total}
+          bySideCounts={data.counts.bySide}
+        />
       ) : (
         <EmptyState />
       )}

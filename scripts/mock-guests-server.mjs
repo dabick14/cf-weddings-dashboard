@@ -27,25 +27,27 @@ const LAST_NAMES = [
   "Antwi", "Asante", "Adjei", "Appiah", "Agyemang", "Boakye", "Yeboah", "Amoah",
 ];
 
-function buildSide(firstNames, side, offset) {
-  return Array.from({ length: GUESTS_PER_SIDE }, (_, n) => {
-    const first = firstNames[n % firstNames.length];
-    const last = LAST_NAMES[Math.floor(n / firstNames.length) % LAST_NAMES.length];
-    const i = offset + n;
-    return {
-      name: `${first} ${last}`,
-      phone: i % 3 === 0 ? "" : `+233 24 000 0${i}${i}${i}`,
-      email: i % 4 === 0 ? `${first.split(" ")[0].toLowerCase()}@example.com` : "",
-      side,
-      createdAt: new Date(Date.now() - i * 3600_000).toISOString(),
-    };
-  });
+function makeGuest(firstNames, side, n, i) {
+  const first = firstNames[n % firstNames.length];
+  const last = LAST_NAMES[Math.floor(n / firstNames.length) % LAST_NAMES.length];
+  return {
+    name: `${first} ${last}`,
+    phone: i % 3 === 0 ? "" : `+233 24 000 0${i}${i}${i}`,
+    email: i % 4 === 0 ? `${first.split(" ")[0].toLowerCase()}@example.com` : "",
+    side,
+    createdAt: new Date(Date.now() - i * 3600_000).toISOString(),
+  };
 }
 
-const guests = [
-  ...buildSide(BRIDE_FIRST_NAMES, "afriyie", 0),
-  ...buildSide(GROOM_FIRST_NAMES, "jeremy", GUESTS_PER_SIDE),
-].reverse();
+// Interleave the two sides (rather than one full block per side) so
+// createdAt order — and therefore the "All" tab — mixes both sides
+// realistically, the way real RSVPs actually arrive.
+const guests = [];
+for (let n = 0; n < GUESTS_PER_SIDE; n++) {
+  guests.push(makeGuest(BRIDE_FIRST_NAMES, "afriyie", n, n * 2));
+  guests.push(makeGuest(GROOM_FIRST_NAMES, "jeremy", n, n * 2 + 1));
+}
+guests.reverse();
 
 function toCsv(rows) {
   const header = "name,phone,email,side,createdAt";
