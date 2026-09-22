@@ -16,6 +16,9 @@ import { GuestListPane } from "./GuestListPane";
  * Hero/sub counts always come from `totalCount`/`bySideCounts` (the
  * backend's true counts), never from the length of a filtered list, so
  * searching or switching tabs can never look like the guest count dropped.
+ *
+ * A wedding with no sides configured (a general RSVP) skips all of the
+ * above and renders one flat, searchable list at every breakpoint.
  */
 export function GuestDirectory({
   sides,
@@ -39,7 +42,23 @@ export function GuestDirectory({
   }, [guests, normalizedQuery]);
 
   const forSide = (list: Guest[], sideKey: string) =>
-    list.filter((guest) => guest.side.toLowerCase() === sideKey.toLowerCase());
+    list.filter((guest) => (guest.side ?? "").toLowerCase() === sideKey.toLowerCase());
+
+  if (!sides.length) {
+    return (
+      <div className="mt-16 sm:mt-20">
+        <SearchField id="guest-search" value={query} onChange={setQuery} className="md:max-w-sm" />
+        <div className="mt-8 md:mt-10">
+          {searchActive && (
+            <p className="pb-3 font-sans text-xs text-rosewood/60">
+              Showing {filteredGuests.length} of {totalCount}
+            </p>
+          )}
+          <GuestListPane key={normalizedQuery} guests={filteredGuests} hasAnyGuests={guests.length > 0} />
+        </div>
+      </div>
+    );
+  }
 
   const mobileScope = activeTab === "all" ? filteredGuests : forSide(filteredGuests, activeTab);
   const mobileTrueCount = activeTab === "all" ? totalCount : (bySideCounts[activeTab] ?? 0);

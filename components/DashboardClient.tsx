@@ -55,6 +55,11 @@ export function DashboardClient({
   }, []);
 
   const hasGuests = data.counts.total > 0;
+  // Sides weddings predate RSVPs; only surface the breakdown there once
+  // someone has actually answered, so an all-"unknown" list looks unchanged.
+  const attendingCounts = data.counts.attending;
+  const showAttending =
+    data.sides.length === 0 || attendingCounts.yes + attendingCounts.no > 0;
 
   return (
     <main className="mx-auto w-full max-w-4xl flex-1 px-6 pt-16 pb-8 sm:px-10 sm:pt-24">
@@ -66,6 +71,7 @@ export function DashboardClient({
         isRefreshing={isRefreshing}
         refreshHiccup={refreshHiccup}
         onRefresh={refresh}
+        attending={showAttending ? attendingCounts : undefined}
       />
 
       {hasGuests ? (

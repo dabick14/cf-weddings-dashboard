@@ -4,7 +4,10 @@ export interface Guest {
   name: string;
   phone: string;
   email: string;
-  side: string;
+  /** Absent/empty for weddings without sides (a general RSVP). */
+  side?: string;
+  /** null = unknown — older forms never asked, so never read it as "not attending". */
+  attending: boolean | null;
   createdAt: string | null;
 }
 
@@ -13,9 +16,16 @@ export interface GuestSide {
   label: string;
 }
 
+export interface AttendingCounts {
+  yes: number;
+  no: number;
+  unknown: number;
+}
+
 export interface GuestCounts {
   total: number;
   bySide: Record<string, number>;
+  attending: AttendingCounts;
 }
 
 export interface GuestsPayload {
@@ -64,8 +74,26 @@ export async function fetchGuests(key: string): Promise<GuestsResult> {
     return { ok: false, status: res.status, message };
   }
 
-  const data = (await res.json()) as GuestsPayload;
+  const data = normalizePayload((await res.json()) as GuestsPayload);
   return { ok: true, data };
+}
+
+/**
+ * Tolerates a backend that predates the RSVP fields (no `attending` on
+ * guests, no `counts.attending`): missing answers become null ("unknown"),
+ * never false, and the counts are derived from the guest list.
+ */
+function normalizePayload(data: GuestsPayload): GuestsPayload {
+  const guests = data.guests.map((guest) => ({
+    ...guest,
+    attending: typeof guest.attending === "boolean" ? guest.attending : null,
+  }));
+  const attending = data.counts.attending ?? {
+    yes: guests.filter((guest) => guest.attending === true).length,
+    no: guests.filter((guest) => guest.attending === false).length,
+    unknown: guests.filter((guest) => guest.attending === null).length,
+  };
+  return { ...data, sides: data.sides ?? [], guests, counts: { ...data.counts, attending } };
 }
 
 /**
